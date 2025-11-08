@@ -5,9 +5,7 @@
 Ce projet a été réalisé dans le cadre du cours Analyse et Modélisation Multivariées du Master 2 SSD à l'Université de Montpellier.  
 L'objectif de ce TP est de mettre en œuvre l'Analyse Discriminante PLS exploratoire (ADPLS), une méthode permettant de représenter et d'interpréter la structure discriminante d'un ensemble d'individus à partir de variables quantitatives et d'une variable qualitative de classes.
 
-L'approche consiste à extraire des composantes linéaires des variables explicatives \( X \) maximisant simultanément :
-- la variance expliquée dans \( X \), et  
-- la séparation entre les groupes définis par la variable qualitative \( Y \).
+L'approche consiste à extraire des composantes linéaires des variables explicatives \( X \) maximisant simultanément la variance expliquée dans \( X \), et la séparation entre les groupes définis par la variable qualitative \( Y \).
 
 ## Objectifs
 
@@ -29,8 +27,6 @@ Les données utilisées proviennent du jeu de données **Datagenus**, issu du pr
 - `graphics` : visualisations des plans discriminants.  
 - `base` : manipulation des matrices et vecteurs.  
 
-*Aucune dépendance externe n’est requise : le code ADPLS est entièrement programmé à la main.*
-
 ## Structure du projet
 
 ```
@@ -44,9 +40,9 @@ Les données utilisées proviennent du jeu de données **Datagenus**, issu du pr
 
 ## Auteurs
 
-AIGOIN Emilie
-THOMAS Anne-Laure
-STETSUN Kateryna
+- AIGOIN Emilie
+- STETSUN Kateryna
+- THOMAS Anne-Laure
 Master 2 SSD - Université de Montpellier  
 Année universitaire 2024-2025
 
