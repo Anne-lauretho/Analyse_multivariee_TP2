@@ -442,4 +442,30 @@ data.frame(
 # Graphique plan 1-2
 plot_adpls(out, Y = Y, Y_labels = grp, h = 1, m = 2, show_variables = TRUE)
 ```
+Le tableau obtenu présente les valeurs des indicateurs \(S(f_h)\), \(R^2(f_h, Y)\) et du produit \(S(f_h) \times R^2(f_h, Y)\) pour les trois premières composantes extraites :
 
+- La première composante (axe 1) concentre la plus grande part de l'inertie de \(X\) (\(S_1 = 18{,}4\%\)) et présente la liaison la plus forte avec \(Y\) (\(R^2_1 = 0{,}20\)). Son pouvoir discriminant \(S_1 R^2_1 = 0{,}037\) est le plus élevé : elle constitue l'axe discriminant principal entre les forêts.
+
+- La deuxième composante (axe 2) apporte une contribution plus faible (\(S_2 R^2_2 = 0{,}021\)), traduisant une discrimination complémentaire, souvent entre classes proches ou sous-groupes de forêts.
+
+- La troisième composante (axe 3) ne joue qu'un rôle mineur (\(S_3 R^2_3 = 0{,}005\)), indiquant que la structure discriminante est essentiellement portée par les deux premiers axes.
+
+Les deux premiers axes résument donc l'essentiel de la séparation entre les types de forêts. On peut ainsi se limiter au plan 1–2 pour l’interprétation graphique.
+
+Le graphique ci-dessous représente les forêts projetées sur ce plan. Chaque point correspond à une forêt, colorée selon sa classe (*forest type*), tandis que les croix noires indiquent les centres de gravité des classes. Les flèches grises représentent les genres d’arbres (\(x_j\)), projetés selon leur corrélation avec les axes.
+
+On observe une bonne séparation de certaines classes. Par exemple, les forêts des classes 4 (rouge), 6 (bleu) et 7 (magenta) sont nettement éloignées les unes des autres, ce qui indique qu’elles possèdent des compositions en genres d’arbres distinctes. Leurs centres bien séparés témoignent d’une discrimination efficace par les premières composantes.
+
+À l’inverse, les classes 1 (jaune), 2 (vert) et 3 (orange) sont plus proches les unes des autres, avec une forte densité de points autour de l’origine. Cela suggère que ces types de forêts partagent des caractéristiques communes, ou que la discrimination entre elles est moins marquée sur les deux premières composantes.
+
+Les flèches grises permettent d’identifier les genres d’arbres les plus discriminants. Par exemple, les flèches orientées vers les classes 6 ou 7 indiquent que certains genres sont spécifiques à ces forêts. La longueur des flèches traduit leur corrélation avec les axes : plus une flèche est longue, plus le genre d’arbre associé contribue à la séparation des classes.
+
+En résumé, l’ADPLS permet ici de visualiser la structure discriminante des données *Datagenus*. La première composante présente un pouvoir discriminant élevé (\(S_1 R^2_1\) important), et les classes bien séparées sur le plan 1–2 sont celles dont les compositions en genres d’arbres sont les plus distinctes. Les composantes suivantes affinent la discrimination, mais leur contribution décroît rapidement.
+
+### Conclusion
+
+L’analyse exploratoire par ADPLS a permis de mettre en évidence une structure discriminante claire entre les types de forêts, principalement portée par la première composante. Certaines classes, comme les forêts 4, 6 et 7, sont bien séparées sur le plan factoriel, ce qui témoigne de différences marquées dans leur composition en genres d’arbres. D’autres classes, plus proches, présentent une discrimination moins nette, suggérant des similarités écologiques ou des limites dans la capacité des premières composantes à les distinguer.
+
+Les flèches associées aux variables \(x_j\) ont permis d’identifier les genres d’arbres les plus influents dans la séparation des classes. Ces résultats confirment la pertinence de l’ADPLS pour explorer les relations entre abondances végétales et typologie forestière.
+
+Cette première exploration pourra être complétée par une analyse plus fine des composantes suivantes, ou par une validation supervisée (classification croisée, prédiction) pour confirmer le pouvoir discriminant des variables identifiées.
