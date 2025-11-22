@@ -366,54 +366,41 @@ Ces coordonnées constituent une étape essentielle pour l’interprétation gé
 
 ## 4. Calcul des coordonnées des variables de X
 
-Cette étape consiste à déterminer la position des variables initiales $X_j$ dans l’espace engendré par les $H$ omposantes discriminantes obtenues par l’ADPLS. L’étude de ces coordonnées permet d’évaluer la contribution de chaque variable à la construction des axes discriminants et, par conséquent, son rôle dans la discrimination entre les groupes.
+Cette étape consiste à déterminer la position des variables initiales $X_j$ dans l’espace engendré par les $H$ composantes discriminantes obtenues par l’ADPLS. L’étude de ces coordonnées permet d’évaluer la contribution de chaque variable à la construction des axes discriminants et, par conséquent, son rôle dans la discrimination entre les groupes.
 
-Pour une variable centrée-réduite  $X_j$ pet une composante discriminante $f_h$, la corrélation pondérée est définie par :
+Pour une variable $X_j$ et une composante discriminante $f_h$, la corrélation pondérée est définie par :
+$$ r_{jh} =  \frac{ \langle X_j , f_h \rangle_W }{ \|X_j\|_W \, \|f_h\|_W } $$
 
-\[
-r_{jh} =  \frac{ \langle X_j , f_h \rangle_W }
-               { \|X_j\|_W \, \|f_h\|_W }
-\]
-
-où :
-
-- $X_j$ : $j$-ième variable centrée-réduite de $X$,
-- $f_h$ : $h$-ième composante discriminante,
-- $\langle \cdot , \cdot \rangle_W$ : le produit scalaire pondéré par la matrice $W$,
-- $\|\cdot\|_W$ :  la norme associée à ce produit scalaire.
+où $\langle \cdot, \cdot \rangle_W$ désigne le produit scalaire pondéré par la matrice $W$, et $\Vert \cdot \Vert_W$ la norme associée. 
 
 Sous forme matricielle, la matrice des corrélations entre les variables et les axes discriminants s’écrit :
+$$ C = D_X^{-1} \, (X' W F) \, D_F^{-1} $$
 
-\[
-C = \text{corr}(X, F) = D_X^{-1} \, (X' W F) \, D_F^{-1}
-\]
-
-avec :
-
-- $D_X$ la matrice diagonale des normes pondérées des variables de $X_j$,
-- $D_F$ la matrice diagonale des normes pondérées des composantes $f_h$.
+où $D_X$ et $D_F$ sont les matrices diagonales contenant respectivement les normes pondérées des colonnes de $X$ et de $F$.
 
 La matrice $C$ (de dimension $p \times H$) regroupe les coordonnées factorielles des variables sur les différents axes.
 
 ```{r adpls_part4, echo=TRUE}
+
 adpls_part4 <- function(X, Y, H = 2, w = NULL, M = NULL, center_scale = TRUE) {
 
-# réutilise la fonction adpls_part3
+# Réutilise la fonction adpls_part3
   part3 <- adpls_part3(X, Y, H, w, M, center_scale)
   
-# préparation des objets utiles
+# Préparation des objets utiles
   W <- diag(part3$w)
   F <- part3$F
   
-# X supposé centré-réduit
-  X <- scale(X, center = TRUE, scale = TRUE)
+# X transformé de la même manière que dans la partie 1
+  X <- as.matrix(X)
+  if (center_scale) X <- scale(X, center = TRUE, scale = TRUE)
   n <- nrow(X)
   p <- ncol(X)
   
-# matrice des corrélations
+# Matrice des corrélations
   C <- matrix(0, nrow = p, ncol = H)
   
-# corrélations pondérées entre X_j et f_h
+# Calcul de corrélations pondérées entre X_j et f_h
   for (j in 1:p) {
     xj <- X[, j]
     norm_xj <- sqrt(as.numeric(t(xj) %*% (W %*% xj)))
@@ -432,95 +419,98 @@ adpls_part4 <- function(X, Y, H = 2, w = NULL, M = NULL, center_scale = TRUE) {
   rownames(C) <- colnames(X)
   colnames(C) <- paste0("Axe_", seq_len(H))
   
-# résultats
+# Ajout des résultats
   part3$var_coords <- C
   
   return(part3)
 }
+
 ```
 
-Les coefficients de la matrice $C$ représentent les corrélations pondérées entre les variables initiales et les axes discriminants issus de l’ADPLS. Une valeur absolue élevée (proche de $1$) indique une forte contribution de la variable à la construction de l’axe considéré, tandis qu’une valeur faible (proche de $0$) traduit une influence limitée, voire nulle.
+Les coefficients de la matrice $C$ représentent les corrélations pondérées entre les variables initiales et les axes discriminants issus de l’ADPLS. Une valeur absolue élevée (proche de $1$) indique une forte contribution de la variable à la construction de l’axe considéré, tandis qu’une valeur faible (proche de $0$) traduit une influence limitée.
 
-Ainsi, l’analyse de la matrice $C$ constitue une étape fondamentale pour relier les composantes discriminantes aux variables d’origine. Elle permet d’interpréter la signification géométrique des axes obtenus, en identifiant les variables qui structurent le plus efficacement la séparation entre les groupes.
+L’analyse de la matrice $C$ constitue une étape fondamentale pour relier les composantes discriminantes aux variables d’origine. Elle permet d’interpréter la signification des axes obtenus en identifiant les variables qui structurent le plus efficacement la séparation entre les groupes.
 
 ### Fonction générale — intégration du processus ADPLS
 
-Afin de rassembler l’ensemble des étapes de calcul présentées précédemment (questions 1 à 4), nous avons implémenté une fonction générale `adpls_full()`.
+Afin de simplifier l'utilisation de l'ADPLS, nous avons implémenté une fonction générale `adpls_full()` qui regroupe l'ensemble des étapes de calcul présentées précédemment (questions 1 à 4).
 
-Cette fonction constitue une synthèse opérationnelle de l’approche ADPLS et permet d’obtenir, à partir des matrices d’entrée $X$ et $Y$, l’ensemble des résultats requis pour l’analyse discriminante partielle par moindres carrés.
+Cette fonction permet d'obtenir directement, à partir des matrices d'entrées $X$ et $Y$, tous les résultats nécessaires à l'analyse discriminante : composantes discriminantes, indicateurs de qualité, coordonnées des centres de gravité et coordonnées des variables. Elle évite ainsi d'avoir à appeler successivement les quatre fonctions intermédiaires et simplifie considérablement le processus d'analyse pour l'utilisateur final.
 
 ```{r adpls_full}
+
 adpls_full <- function(X, Y, H=2, w=NULL, M=NULL, center_scale=TRUE){
   
-# fonctions utilitaires internes
-Wmat <- function(w) {
-  if (is.null(w)) return(NULL)
-  diag(as.numeric(w), nrow = length(w))
-}
+# Fonctions utilitaires internes
+  Wmat <- function(w) {
+    if (is.null(w)) return(NULL)
+    diag(as.numeric(w), nrow = length(w))
+  }
 
-w_norm2 <- function(v, w) {
-  if (is.null(w)) return(sum(v^2))
-  as.numeric(t(v) %*% (w * v))
-}
+  w_norm2 <- function(v, w) {
+    if (is.null(w)) return(sum(v^2))
+    as.numeric(t(v) %*% (w * v))
+  }
 
-w_prod <- function(a, b, w) {
-  if (is.null(w)) return(as.numeric(t(a) %*% b))
-  as.numeric(t(a) %*% (w * b))
-}
+  w_prod <- function(a, b, w) {
+    if (is.null(w)) return(as.numeric(t(a) %*% b))
+    as.numeric(t(a) %*% (w * b))
+  }
 
-M_half <- function(M) {
-  ev <- eigen(M, symmetric = TRUE)
-  vals <- pmax(ev$values, 0)
-  vecs <- ev$vectors
-  vecs %*% diag(sqrt(vals), length(vals)) %*% t(vecs)
-}
-
-M_half_inv <- function(M) {
-  ev <- eigen(M, symmetric = TRUE)
-  vals <- ev$values
-  vecs <- ev$vectors
-  invvals <- ifelse(vals > 0, 1 / sqrt(vals), 0)
-  vecs %*% diag(invvals, length(invvals)) %*% t(vecs)
-}
+  M_half <- function(M) {
+    ev <- eigen(M, symmetric = TRUE)
+    vals <- pmax(ev$values, 0)
+    vecs <- ev$vectors
+    vecs %*% diag(sqrt(vals), length(vals)) %*% t(vecs)
+  }
+  
+  M_half_inv <- function(M) {
+    ev <- eigen(M, symmetric = TRUE)
+    vals <- ev$values
+    vecs <- ev$vectors
+    invvals <- ifelse(vals > 0, 1 / sqrt(vals), 0)
+    vecs %*% diag(invvals, length(invvals)) %*% t(vecs)
+  }
  
  if (is.null(w)) w <- rep(1 / nrow(X), nrow(X))
   
-# étapes de calcul
+# Enchainement des étapes de calcul
   part1 <- adpls_part1(X = X, Y = Y, H = H, w = w, M = M, center_scale = center_scale)
   part2 <- adpls_part2(X = X, Y = Y, H = H, w = w, M = M, center_scale = center_scale)
   part3 <- adpls_part3(X = X, Y = Y, H = H, w = w, M = M, center_scale = center_scale)
   part4 <- adpls_part4(X = X, Y = Y, H = H, w = w, M = M, center_scale = center_scale)
 
- # résultats 
-  return(list(F=part1$F, 
-              Ftilde=part1$Ftilde,
-              S=part2$S, 
-              R2=part2$R2,
-              centers=part3$centers,
-              var_coords=part4$var_coords))
+# Extraction et renvoi des résultats essentiels 
+  return(list(F = part1$F, 
+              Ftilde = part1$Ftilde,
+              S = part2$S, 
+              R2 = part2$R2,
+              centers = part3$centers,
+              var_coords = part4$var_coords))
 }
 ```
 
+Cette fonction constitue l'outil principal pour effectuer une analyse ADPLS complète en une seule instruction. Elle retourne une liste contenant:
+
+- `F` correspond à $F$ : les composantes discriminantes brutes.
+- `Ftilde` correspond à $\tilde F$ : les composantes discriminantes normalisées.
+- `S` correspond à $S$ : les proportions d'inertie expliquées.
+- `R2` correspond à $R^2$ : les coefficients de détermination.
+- `centers` : les coordonnées des centres de gravité des classes.
+- `var_coords` : les coordonnées des variables sur les axes discriminants.
+
 ## 5. Représentation graphique des individus, des centres de gravité et des variables
 
-Dans cette dernière étape, nous devons visualiser les résultats obtenus dans les étapes précédentes.  
+Dans cette dernière étape, nous visualisons les résultats obtenus dans un plan factoriel $(h,m)$ choisi par l'utilisateur. L'objectif comporte trois volets :
 
-L’objectif comporte trois volets :
+- Afficher les individus dans le plan factoriel, colorés selon leur classe.
+- Afficher les centres de gravité des $q$ classes sur ce même plan.
+- Afficher les variables de $X$ projetées sur le plan choisi et tracer le cercle unité pour faciliter l'interprétation des corrélations.
 
-1. Afficher les individus dans le plan factoriel $(h, m)$ choisi par l'utilisateur.
-2. Afficher les centres de gravité des $q$ classes sur ce même plan.
-3. Afficher les variables de $X$ projetées sur le plan choisi et tracer le cercle unité.
-
-Pour cela, nous utilisons la fonction `plot_adpls()` qui génère la figure dans le plan $(h, m)$.
-
-Cette fonction affiche :
-
-- les individus colorés selon leur classe,
-- les centres de gravité des $q$ classes,
-- les variables de $X$ projetées sur le plan choisi,
-- le cercle unité, pour faciliter l'interprétation des corrélations.
+Pour cela, nous utilisons la fonction `plot_adpls()` qui génère la représentation complète dans le plan $(h, m)$.
 
 ```{r plot_adpls, echo=TRUE }
+
 library(RColorBrewer)
 
 plot_adpls <- function(out, Y = NULL, Y_labels = NULL, h = 1, m = 2,
@@ -533,7 +523,7 @@ plot_adpls <- function(out, Y = NULL, Y_labels = NULL, h = 1, m = 2,
   var_coords <- out$var_coords
   n <- nrow(Ftilde)
   
-# identification des étiquettes de classes
+# Identification des étiquettes de classes
   if (is.null(Y_labels) & !is.null(Y)) {
     lab <- apply(Y, 1, function(r) which(r == 1))
     Y_labels <- factor(lab)
@@ -541,18 +531,17 @@ plot_adpls <- function(out, Y = NULL, Y_labels = NULL, h = 1, m = 2,
     stop("Y_labels ou Y doivent être fournis!")
   }
   
-# individus
+# Coordonnées des individus sur les axes (h, m)
   xind <- Ftilde[, h]
   yind <- Ftilde[, m]
   classes <- as.factor(Y_labels)
-  cols <- rainbow(length(levels(classes)))
   
-# palette de couleurs
+# Palette de couleurs
   n_classes <- length(levels(classes))
   cols <- brewer.pal(min(max(n_classes, 3), 8), "Set2")
   if (n_classes > 8) cols <- rep(cols, length.out = n_classes)
   
-# tracé des individus
+# Tracé des individus
   plot(xind, yind,
        col = adjustcolor(cols[as.numeric(classes)], alpha.f = 0.7),
        pch = 19,
@@ -564,22 +553,23 @@ plot_adpls <- function(out, Y = NULL, Y_labels = NULL, h = 1, m = 2,
        xlim = xlim,
        ylim = ylim)
   
-legend("topright",
-       legend = levels(classes),
-       col = cols,
-       pch = 19,
-       cex = 1,
-       title = "Classes",
-       bg = "white",
-       box.lwd = 0.5, 
-       box.col = "black",
-       text.col = "black")
+# Légende
+  legend("topright",
+         legend = levels(classes),
+         col = cols,
+         pch = 19,
+         cex = 1,
+         title = "Classes",
+         bg = "white",
+         box.lwd = 0.5, 
+         box.col = "black",
+         text.col = "black")
   
-# centres de gravité
+# Centres de gravité
   points(centers[, h], centers[, m], col = "black", pch = 8, cex = cex_cent)
   text(centers[, h], centers[, m], labels = rownames(centers), pos = 3)
   
-# variables dans le plan
+# Représentation des variables dans le plan
   if (show_variables) {
     arrows(rep(0, nrow(var_coords)), rep(0, nrow(var_coords)),
            var_coords[, h], var_coords[, m],
@@ -589,7 +579,7 @@ legend("topright",
          labels = rownames(var_coords),
          cex = 0.7, col = "grey20")
     
-# cercle unité pour corrélations
+# Cercle unité pour l'interprétation des corrélations
     if (circle) {
       angles <- seq(0, 2*pi, length.out = 200)
       lines(cos(angles), sin(angles), lty = 2, col = "black")
@@ -597,9 +587,12 @@ legend("topright",
   }
 }
 
-# opérateur utilitaire : renvoie a si non nul, sinon b
+# Opérateur utilitaire : renvoie a si non nul, sinon b
 `%||%` <- function(a, b) if (!is.null(a)) a else b
+
 ```
+
+Cette fonction permet de visualiser simultanément les trois éléments clés de l'ADPLS : la disposition des individus colorés par classe, la position des centres de gravité et la contribution des variables initiales. Le cercle unité facilite l'interprétation des corrélations : une variable dont la flèche atteint ou dépasse le cercle contribue fortemenet à l'axe considéré.
 
 ### Conclusion 
 
