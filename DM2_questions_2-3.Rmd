@@ -11,41 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```
 
-# Introduction
-
-L’Analyse Discriminante PLS exploratoire (ADPLS) est une méthode multivariée qui combine les principes de la régression PLS (Partial Least Squares) et de l’analyse discriminante.  
-Son objectif est de construire des composantes linéaires des variables explicatives \( X \) maximisant la capacité de discrimination des groupes définis par la variable qualitative \( Y \).
-
-Autrement dit, on cherche à extraire des axes factoriels \( f = X M u \) expliquant à la fois une grande part de la variance de \( X \) (inertie totale) et une forte part de la variance expliquée par les classes de \( Y \).  
-Les notations utilisées sont celles du cours :
-
-- \( X \in \mathbb{R}^{n \times p} \) : matrice des variables quantitatives centrées ;  
-- \( Y \in \mathbb{R}^{n \times q} \) : matrice d’indicatrices des \( q \) classes (non centrée) ;  
-- \( W = \mathrm{diag}(w_i) \) : matrice diagonale des poids individuels ;  
-- \( M \) : métrique définie positive sur l’espace des variables ;  
-- \( f = X M u \) : composante discriminante associée à la direction \( u \) ;  
-- \( \Pi_Y = Y (Y' W Y)^{-1} Y' W \) : projecteur sur l’espace engendré par \( Y \) ;  
-- \( \widehat{X} = \Pi_Y X \) : projection de \( X \) sur cet espace.
-
 # Partie 2 — Programmation
-
-Dans cette seconde partie, nous détaillons l’implémentation algorithmique de l’Analyse Discriminante PLS (ADPLS).
-
-L’objectif est de reconstruire pas à pas les éléments de la méthode : extraction des composantes discriminantes, calcul des indicateurs associés et préparation des représentations graphiques permettant l’interprétation multivariée des données.
-
-Nous adoptons une approche modulaire afin de distinguer clairement les opérations matricielles générales (produits pondérés, normalisations, métriques) des étapes spécifiques au calcul des composantes ADPLS.
-
-## Définition des variables d’entrée et fonctions utilitaires
-
-Les données d’entrée nécessaires à l’algorithme sont les suivantes :
-
-- la matrice $X$ de dimension $n \times p$ : elle contient les variables explicatives numériques (non nécessairement centrées).
-- la matrice $Y$ de dimension $n \times q$ : elle est formée des indicatrices correspondant aux $q$ modalités de la variable de groupe.
-- le paramètre $H$ : il représente le nombre de composantes discriminantes à extraire.
-- le vecteur de poids $w$, de longueur $n$ : il peut être laissé nul pour signifier des poids égaux.
-- la matrice métrique $M$ de dimension $p \times p$ : elle est éventuellement identitaire.
-
-L'option `center_scale` permet de centrer et réduire les variables de $X$ si nécessaire.
 
 ```{r setup_inputs, eval=FALSE, echo=TRUE}
 
@@ -108,15 +74,7 @@ M_half_inv <- function(M) {
 
 ## 1. Calcul des H premières composantes ADPLS
 
-La première étape consiste à extraire successivement les $H$ composantes discriminantes. Pour chaque rang $h$, nous cherchons la composante $f_h = XMu_h$ qui maximise le critère $\Vert \widehat X M u \Vert^2_W$, où $\widehat X = \Pi_Y X$ désigne la projection de $X$ sur l'espace engendré par les indicatrices de $Y$.
-
-D'après la partie théorique (question 2.b), pour $h = 1$, le vecteur $u_1$ est ke vecteur propre $M$-unitaire de la matrice $EM$ (où $E = \widehat X' W \widehat X$) associé à sa plus grande valeur propre. En pratique, nous diagonalisons la matrice symétrique $E^* = M^{1/2} E M^{1/2}$ pour obtenir $u_1^* = M^{1/2} u_1$, puis nous revenons à $u_1 = M^{-1/2}u_1^*$ en normalisant selon la contrainte $u'_1 M u_1 = 1$.
-
-Pour $h > 1$, nous devons imposer l'orthogonalité $u'_h M u_h' = 0$ pour tout $h' < h$, ce qui revient à recherche $u_h$ dans l'orthogonal de $D = X'WF_{h-1}$ (où $F_{h-1} = [f_1, \dots, f_{h-1}]$). D'après la question 3.c, nous diagonalisons alors la matrice symétrique :
-$$ M^{1/2} \Pi_{D^\perp} EM \Pi'_{D^\perp}M^{1/2} $$
-où $Pi_{D^\perp} = I - D(D'MD)^{-1}D'M$ est le projecteur sur $D^\perp$ dans la métrique $M$.
-
-L’algorithme ci-dessous réalise ces étapes successives et renvoie les vecteurs $u_h$, les composantes discriminantes $F = (f_h)$, les composantes normalsiées $\tilde F$, ainsi que les quantités intermédiaires $\widehat X$, $E$ et le projecteur $\Pi_Y$.
+L’algorithme ci-dessous renvoie les vecteurs $u_h$, les composantes discriminantes $F = (f_h)$, les composantes normalsiées $\tilde F$, ainsi que les quantités intermédiaires $\widehat X$, $E$ et le projecteur $\Pi_Y$.
 
 ```{r adpls_part1, echo=TRUE}
 
@@ -238,18 +196,6 @@ adpls_part1 <- function(X, Y, H = 2, w = NULL, M = NULL, center_scale = TRUE) {
 
 ## 2. Calcul des indicateurs $S(f_h)$ et $R^2 (f_h, Y)$
 
-Dans cette étape, nous évaluons la qualité des composantes discriminantes obtenues à partir de l’ADPLS. Deux indicateurs complémentaires sont utilisés :
-
-$$ S(f_h) = \frac{\| f_h \|_W^2}{\operatorname{tr}(X' W X)}, \quad 
-R^2(f_h, Y) = \frac{\| \hat{f}_h \|_W^2}{\| f_h \|_W^2} $$
-
-où $\hat{f}_h = \Pi_Y f_h$ désigne la projection de $f_h$ sur l'espace engendré par $Y$.
-
-L’indicateur $S(f_h)$ mesure la proportion d’inertie totale de $X$ capturée par la composante $f_h$.
-Une valeur élevée signale que l’axe contribue significativement à la structuration globale du nuage d’individus.
-
-L’indicateur $R^2(f_h,Y)$ quantifie la part de variance de $f_h$, expliquée par les classes. Un $R^2$ proche de 1 indique que la composante est fortement alignée avec la structure induite par la variable de groupe et possède une capacité discriminante élevée.
-
 L’implémentation suivante exploite les résultats de la fonction `adpls_part1` et procède, pour chaque composante, au calcul des normes pondérées nécessaires à l’obtention des deux indicateurs.
 
 ```{r adpls_part2, echo=TRUE}
@@ -310,25 +256,7 @@ adpls_part2 <- function(X, Y, H = 2, w = NULL, M = NULL, center_scale = TRUE) {
 
 ```
 
-Le vecteur `S_vec` regroupe les proportions d’inertie globale expliquées par chacune des composantes discriminantes, tandis que le vecteur `R2_vec` fournit une mesure synthétique de la part de variance des composantes imputable aux classes.
-
-Ces deux indicateurs constituent la base de l’interprétation exploratoire de l’ADPLS :
-les composantes associées à un $S(f_h)$ élevé et un $R^2(f_h, Y)$ proche de 1 sont celles qui contribuent le plus efficacement à la discrimination entre groupes.
-
 ## 3. Calcul des coordonnées des centres de gravité des $q$ classes sur les $H$ axes discriminants
-
-Cette étape consiste à déterminer, pour chacune des $q$ classes, les coordonnées de son centre de gravité dans l’espace défini par les $H$ premières composantes discriminantes.
-
-Rappelons que $F = [f_1, f_2, \ldots, f_H]$ désigne la matrice des composantes discriminantes de dimension $(n \times H)$, et que $Y$ est la matrice indicatrice $(n \times q)$ telle que $Y_{ik} = 1$ si l'individu $i$ appartient à la classe $k$, et $0$ sinon.
-
-La coordonnée du centre de gravité de la classe $k$ sur l’axe $h$ correspond à la moyenne pondérée des scores individuels sur cet axe :
-
-$$ g_{kh} = \frac{ \sum_{i=1}^{n} w_i \, Y_{ik} \, f_{ih} }{ \sum_{i=1}^{n} w_i \, Y_{ik} } $$
-
-Sous forme matricielle, la matrice $G \in \mathbb R^{q \times H}$ des coordonnées de tous les cetres de gravité s'écrit :
-$$ G = (Y' W Y)^{-1} Y' W F $$
-
-où chaque ligne de $G$ correspond au barycentre d'une classe dans l'espace factoriel, et chaque colonne correspond à un axe discriminant.
 
 L’implémentation est donnée ci-dessous.
 
@@ -360,25 +288,7 @@ adpls_part3 <- function(X, Y, H = 2, w = NULL, M = NULL, center_scale = TRUE) {
 
 ```
 
-La matrice $G$ contient donc les coordonnées pondérées des centres de gravité des classes dans le sous-espace discriminant. Chaque ligne de $G$ représente la position barycentrique d’une classe sur les $H$ axes principaux.
-
-Ces coordonnées constituent une étape essentielle pour l’interprétation géométrique : elles permettent de visualiser la disposition relative des groupes dans le plan factoriel $(h, m)$, ce qui sera exploité lors de la représentation graphique.
-
 ## 4. Calcul des coordonnées des variables de X
-
-Cette étape consiste à déterminer la position des variables initiales $X_j$ dans l’espace engendré par les $H$ composantes discriminantes obtenues par l’ADPLS. L’étude de ces coordonnées permet d’évaluer la contribution de chaque variable à la construction des axes discriminants et, par conséquent, son rôle dans la discrimination entre les groupes.
-
-Pour une variable $X_j$ et une composante discriminante $f_h$, la corrélation pondérée est définie par :
-$$ r_{jh} =  \frac{ \langle X_j , f_h \rangle_W }{ \|X_j\|_W \, \|f_h\|_W } $$
-
-où $\langle \cdot, \cdot \rangle_W$ désigne le produit scalaire pondéré par la matrice $W$, et $\Vert \cdot \Vert_W$ la norme associée. 
-
-Sous forme matricielle, la matrice des corrélations entre les variables et les axes discriminants s’écrit :
-$$ C = D_X^{-1} \, (X' W F) \, D_F^{-1} $$
-
-où $D_X$ et $D_F$ sont les matrices diagonales contenant respectivement les normes pondérées des colonnes de $X$ et de $F$.
-
-La matrice $C$ (de dimension $p \times H$) regroupe les coordonnées factorielles des variables sur les différents axes.
 
 ```{r adpls_part4, echo=TRUE}
 
@@ -426,10 +336,6 @@ adpls_part4 <- function(X, Y, H = 2, w = NULL, M = NULL, center_scale = TRUE) {
 }
 
 ```
-
-Les coefficients de la matrice $C$ représentent les corrélations pondérées entre les variables initiales et les axes discriminants issus de l’ADPLS. Une valeur absolue élevée (proche de $1$) indique une forte contribution de la variable à la construction de l’axe considéré, tandis qu’une valeur faible (proche de $0$) traduit une influence limitée.
-
-L’analyse de la matrice $C$ constitue une étape fondamentale pour relier les composantes discriminantes aux variables d’origine. Elle permet d’interpréter la signification des axes obtenus en identifiant les variables qui structurent le plus efficacement la séparation entre les groupes.
 
 ### Fonction générale — intégration du processus ADPLS
 
@@ -501,14 +407,6 @@ Cette fonction constitue l'outil principal pour effectuer une analyse ADPLS comp
 
 ## 5. Représentation graphique des individus, des centres de gravité et des variables
 
-Dans cette dernière étape, nous visualisons les résultats obtenus dans un plan factoriel $(h,m)$ choisi par l'utilisateur. L'objectif comporte trois volets :
-
-- Afficher les individus dans le plan factoriel, colorés selon leur classe.
-- Afficher les centres de gravité des $q$ classes sur ce même plan.
-- Afficher les variables de $X$ projetées sur le plan choisi et tracer le cercle unité pour faciliter l'interprétation des corrélations.
-
-Pour cela, nous utilisons la fonction `plot_adpls()` qui génère la représentation complète dans le plan $(h, m)$.
-
 ```{r plot_adpls, echo=TRUE }
 
 library(RColorBrewer)
@@ -575,7 +473,10 @@ plot_adpls <- function(out, Y = NULL, Y_labels = NULL, h = 1, m = 2,
            var_coords[, h], var_coords[, m],
            length = 0.07, col = "grey40", lwd = 1)
     
-    text(var_coords[, h], var_coords[, m],
+    # Décalage des étiquettes
+    scale_factor <- 1.15  # Décalage de 15%
+    text(var_coords[, h] * scale_factor, 
+         var_coords[, m] * scale_factor,
          labels = rownames(var_coords),
          cex = 0.7, col = "grey20")
     
@@ -592,112 +493,52 @@ plot_adpls <- function(out, Y = NULL, Y_labels = NULL, h = 1, m = 2,
 
 ```
 
-Cette fonction permet de visualiser simultanément les trois éléments clés de l'ADPLS : la disposition des individus colorés par classe, la position des centres de gravité et la contribution des variables initiales. Le cercle unité facilite l'interprétation des corrélations : une variable dont la flèche atteint ou dépasse le cercle contribue fortemenet à l'axe considéré.
-
-### Conclusion 
-
-Dans cette deuxième partie, nous avons développé l’ensemble des étapes nécessaires à la mise en œuvre de l’ADPLS. Les fonctions programmées permettent d’obtenir les composantes discriminantes, d’évaluer leur qualité, de calculer les centres de gravité des classes et de mesurer la contribution des variables. La fonction graphique rassemble ensuite ces résultats dans une représentation claire sur les plans factoriels, facilitant ainsi l’interprétation. L’ensemble constitue un outil fonctionnel et accessible, qui automatise l’application de la méthode ADPLS et rend l’analyse plus efficace.
-
 # Partie 3 — Application: types forestiers du bassin du Congo
 
-## Chargement des données et ADPLS exploratoire
+## 1. Chargement des données et ADPLS exploratoire
 
-Tout d’abord, nous chargeons le fichier genus et réalisons une analyse ADPLS exploratoire de la variable $Y = forest$ sur les 27 variables de composition arborée $X = [gen1, …, gen27]$. Avant l’analyse, toutes les variables $X$ sont centrées et réduites.
+Tout d’abord, nous chargeons le fichier contenant les informations sur 27 espèces d'arbres $X = [gen1, …, gen27]$. La variable $Y = \text{forest}$ identifie le type forestier de chaque observation.
 
-```{r q1_dataset}
+```{r dataset}
+
+# Jeu de données
 data <- read.table("Datagenus.csv", header = TRUE)
+
+# Variables explicatives : 27 espèces d'arbres
 X <- scale(as.matrix(data[, paste0("gen", 1:27)]), center = TRUE, scale = TRUE)
+
+# Variable à expliquer : type de forêt
 grp <- as.factor(data$forest)
-Y <- model.matrix(~ grp - 1)
+Y <- model.matrix(~ grp - 1)  # -1 pour avoir les q indicatrices (sans intercept)
+
 ```
 
-Une attention particulière est portée au choix de la métrique $M$. Nous allons comparer deux options :
+```{r adpls_M1}
 
-- $M = I$ — matrice identité, métrique standard sans pondération.
-- $M = \text{diag}\left(\frac{1}{\text{var}(X_j)}\right)$ — inverse des variances des variables, pour tenir compte des différences d’échelle.
+# Centrage-réduction de X
+X_scaled <- scale(X, center = TRUE, scale = TRUE)
 
-En comparant les résultats obtenus avec ces différentes métriques, nous pourrons choisir celle qui met le mieux en évidence la structure discriminante entre les types forestiers.
-
-### Metrique 
-
-$M = I$
-
-```{r q1_m1}
+# Métrique identité
 M1 <- diag(1, ncol(X))
 
-#adls
-out1 <- adpls_full(X, Y, H = 3, w = rep(1 / nrow(X), nrow(X)), M = M1, center_scale = FALSE)
+# ADPLS avec M = I
+out1 <- adpls_full(X_scaled, Y, H = 3, M = M1, center_scale = FALSE)
 
+# Indicateurs de qualité
 data.frame(
   Axe = 1:3,
   S = round(out1$S, 3),
   R2 = round(out1$R2, 3),
   Discriminant = round(out1$S * out1$R2, 3)
 )
+
 ```
 
-Le tableau des indicateurs montre que la première composante (axe 1) concentre la part la plus importante de l’inertie totale $(S_1 = 18{,}4\%)$ et qu’elle est la plus corrélée avec la variable de groupe $(R^2_1 = 0{,}20)$. Son pouvoir discriminant $( 0{,}037)$ est donc le plus élevé. Elle représente l’axe principal de séparation entre les types de forêts. La deuxième composante $(0{,}021)$ contribue de manière secondaire, tandis que la troisième $(0{,}005)$ joue un rôle marginal.
+## 2. Interprétation des résultats
 
-### Metrique 
+```{r}
 
-$M = \text{diag}\left(\frac{1}{\text{var}(X_j)}\right)$
-
-```{r q1_m2}
-X2 <- as.matrix(data[, paste0("gen", 1:27)])
-grp <- as.factor(data$forest)
-Y <- model.matrix(~ grp- 1)
-
-variances2 <- apply(X2, 2, var)
-M2 <- diag(1 / variances2)
-
-# standartisation
-X_scaled2 <- scale(X, center = TRUE, scale = TRUE)
-
-# adpls
-out_M2 <- adpls_full(X_scaled2, Y, H = 3, M = M2)
-
-# S, R2, Discriminant
-data.frame(
-  Axe = 1:3,
-  S = round(out_M2$S, 3),
-  R2 = round(out_M2$R2, 3),
-  Discriminant = round(out_M2$S * out_M2$R2, 3)
-)
-```
-
-
-## Interpretation des resultats
-
-```{r q2 input}
-data <- read.table("Datagenus.csv", header = TRUE)
-
-X <- scale(as.matrix(data[, paste0("gen", 1:27)]), center = TRUE, scale = TRUE)
-grp <- as.factor(data$forest)
-Y <- model.matrix(~ grp - 1)
-
-#choosing M
-M <- diag(1, ncol(X))
-
-#adls
-out <- adpls_full(X, Y, H = 3, w = rep(1 / nrow(X), nrow(X)), M = M, center_scale = FALSE)
-
-data.frame(
-  Axe = 1:3,
-  S = round(out$S, 3),
-  R2 = round(out$R2, 3),
-  Discriminant = round(out$S * out$R2, 3)
-)
-```
-
-
-```{r q2_1-2}
-plot12 <- plot_adpls(out, Y = Y, Y_labels = grp, h = 1, m = 2, show_variables = TRUE, main = "Plan 1-2")
-```
-Le graphique de projection sur le plan formé par les axes 1 et 2 illustre cette structure. Chaque point représente une forêt colorée selon sa classe, et les croix indiquent les centres de gravité des groupes. On observe une séparation nette entre les classes 4 et 7, qui apparaissent bien distinctes dans l’espace factoriel. Cela suggère que ces deux types de forêts possèdent des compositions en genres d’arbres clairement différenciées.
-
-En revanche, les classes 5 et 6 sont proches l’une de l’autre : leurs centres de gravité sont situés dans une même zone du plan, ce qui traduit une similarité partielle dans leur composition floristique ou un recouvrement des caractéristiques discriminantes identifiées par les deux premières composantes. Cette proximité peut indiquer soit une continuité écologique entre ces deux types de forêts, soit une difficulté du modèle à les séparer de manière nette.
-
-```{r bigplot1, fig.width=10, fig.height=10}
+# Plan discriminant 1-2
 plot_adpls(
   out,
   Y = Y,
@@ -705,46 +546,29 @@ plot_adpls(
   h = 1,
   m = 2,
   show_variables = TRUE,
-  main = "Plan 1-2",
-  xlim = c(-2, 2),
-  ylim = c(-2, 2)
+  main = "Plan discriminant 1-2",
+  cex_ind = 0.5,  
+  cex_cent = 1.5,     
+  xlim = c(-2.5, 2.5),
+  ylim = c(-2.5, 2.5)
 )
+
 ```
 
+```{r}
 
+# Affichage des coordonnées des variables sur les axes 1 et 2
+var_coords_12 <- out$var_coords[, 1:2]
+colnames(var_coords_12) <- c("Axe_1", "Axe_2")
 
-```{r q2_1-3}
-plot13 <- plot_adpls(out, Y = Y, Y_labels = grp, h = 1, m = 3, show_variables = TRUE, main = "Plan 1-3")
+# Variables les plus corrélées à l'axe 1 (en valeur absolue)
+cat("Variables les plus corrélées à l'axe 1 :\n")
+top_axe1 <- var_coords_12[order(abs(var_coords_12[, "Axe_1"]), decreasing = TRUE)[1:10], ]
+print(round(top_axe1, 3))
+
+cat("\n\nVariables les plus corrélées à l'axe 2 :\n")
+top_axe2 <- var_coords_12[order(abs(var_coords_12[, "Axe_2"]), decreasing = TRUE)[1:10], ]
+print(round(top_axe2, 3))
+
 ```
 
-```{r bigplot2, fig.width=10, fig.height=10}
-plot_adpls(
-  out,
-  Y = Y,
-  Y_labels = grp,
-  h = 1,
-  m = 3,
-  show_variables = TRUE,
-  main = "Plan 1-3",
-  xlim = c(-2, 2),
-  ylim = c(-2, 2)
-)
-```
-
-```{r q2_2-3}
-plot23 <- plot_adpls(out, Y = Y, Y_labels = grp, h = 2, m = 3, show_variables = TRUE, main = "Plan 2-3")
-```
-
-```{r bigplot3, fig.width=10, fig.height=10}
-plot_adpls(
-  out,
-  Y = Y,
-  Y_labels = grp,
-  h = 2,
-  m = 3,
-  show_variables = TRUE,
-  main = "Plan 2-3",
-  xlim = c(-1, 1),
-  ylim = c(-1, 1)
-)
-```
